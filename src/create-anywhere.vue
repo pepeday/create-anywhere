@@ -6,7 +6,7 @@
 
 		<drawer-item
 			v-model:active="showDrawer"
-			:collection="collection"
+			:collection="selectedCollection"
 			:primary-key="'+'"
 			:edits="defaultEdits"
 			@input="handleDrawerSave"
@@ -16,7 +16,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, watch, inject } from 'vue';
 import { useStores, useApi } from '@directus/composables';
 
 // Debug log to verify component mounting
@@ -26,9 +26,10 @@ interface Props {
 	collection: string;
 	primaryKey?: string | number;
 	value: any;
-	icon?: string;
-	color?: string;
-	defaultFields?: Array<{ field: string; value: string }>;
+	selectedCollection: string;
+	defaultFields: Array<{ field: string; value: string }>;
+	color: 'primary' | 'secondary' | 'success' | 'warning' | 'danger';
+	icon: string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -36,6 +37,7 @@ const props = withDefaults(defineProps<Props>(), {
 	icon: 'content_copy',
 	color: 'primary',
 	defaultFields: () => [],
+	selectedCollection: '',
 });
 
 // Debug logs for props
@@ -61,39 +63,76 @@ const api = useApi();
 // State
 const showDrawer = ref(false);
 
-// Computed default edits from configured fields
+// Rename to be more explicit about what values these are
+const currentItemValues = inject('values', ref<Record<string, any>>({}));
+
+// Update the resolveTemplateValue function to use current item values
+const resolveTemplateValue = (template: string) => {
+	// If it's not a template, return as is
+	if (!template.includes('{{')) return template;
+
+	// Extract variable name from {{variableName}}
+	const matches = template.match(/\{\{(.*?)\}\}/g);
+	if (!matches) return template;
+
+	return matches.reduce((resolved, match) => {
+		const fieldName = match.replace(/\{\{|\}\}/g, '').trim();
+		// Use currentItemValues to resolve templates
+		return resolved.replace(match, currentItemValues.value?.[fieldName] ?? '');
+	}, template);
+};
+
+// Update the defaultEdits computed to be more explicit
 const defaultEdits = computed(() => {
-	console.log('Computing default edits with fields:', props.defaultFields);
+	console.log('Computing default edits:', {
+		currentCollection: props.collection,
+		targetCollection: props.selectedCollection,
+		defaultFields: props.defaultFields,
+		currentValues: currentItemValues.value
+	});
 	
 	const edits: Record<string, any> = {};
 	
 	if (props.defaultFields?.length) {
 		props.defaultFields.forEach((fieldConfig) => {
-			console.log('Processing field config:', fieldConfig);
-			edits[fieldConfig.field] = fieldConfig.value;
+			// Resolve template using current item's values
+			const resolvedValue = resolveTemplateValue(fieldConfig.value);
+			console.log(`Resolving field ${fieldConfig.field}:`, {
+				original: fieldConfig.value,
+				resolved: resolvedValue,
+				sourceValues: currentItemValues.value
+			});
+			edits[fieldConfig.field] = resolvedValue;
 		});
 	}
 	
-	console.log('Computed default edits:', edits);
 	return edits;
 });
 
 // Methods
 const handleClick = () => {
-	console.log('Create button clicked for collection:', props.collection);
-	console.log('Current default edits:', defaultEdits.value);
+	console.log('Create button clicked with configuration:', {
+		selectedCollection: props.selectedCollection,
+		collection: props.collection,
+		defaultFields: props.defaultFields,
+		defaultEdits: defaultEdits.value,
+		color: props.color,
+		icon: props.icon,
+	});
 	showDrawer.value = true;
 };
 
 const handleDrawerSave = async (newEdits: Record<string, any>) => {
-	console.log('Saving new item with edits:', {
+	console.log('Creating new item:', {
+		targetCollection: props.selectedCollection,
 		defaultEdits: defaultEdits.value,
 		newEdits,
 		merged: { ...defaultEdits.value, ...newEdits },
 	});
 
 	try {
-		const response = await api.post(`/items/${props.collection}`, {
+		// Use selectedCollection instead of collection for the API call
+		const response = await api.post(`/items/${props.selectedCollection}`, {
 			...defaultEdits.value,
 			...newEdits,
 		});
@@ -102,10 +141,10 @@ const handleDrawerSave = async (newEdits: Record<string, any>) => {
 
 		showDrawer.value = false;
 
-		notificationsStore.add({
-			title: 'Item Created',
-			type: 'success',
-		});
+			notificationsStore.add({
+				title: 'Item Created',
+				type: 'success',
+			});
 	} catch (error) {
 		console.error('Error creating item:', error);
 		notificationsStore.add({
@@ -115,6 +154,16 @@ const handleDrawerSave = async (newEdits: Record<string, any>) => {
 		});
 	}
 };
+
+onMounted(() => {
+	console.log('Create Anywhere Component Configuration:', {
+		selectedCollection: props.selectedCollection,
+		defaultFields: props.defaultFields,
+		color: props.color,
+		icon: props.icon,
+		collection: props.collection,
+	});
+});
 </script>
 
 <style lang="scss" scoped>

@@ -1,7 +1,6 @@
 import { defineInterface } from '@directus/extensions-sdk';
 import InterfaceComponent from './create-anywhere.vue';
 
-// Add a changing console log to verify rebuilds
 console.log('Create Anywhere Interface loaded at:', new Date().toISOString(), Math.random());
 
 export default defineInterface({
@@ -16,16 +15,12 @@ export default defineInterface({
 	localTypes: ['presentation'],
 	group: 'presentation',
 	options: ({ field }) => {
-		console.log('Field in options:', field);
-		console.log('Collection from field:', field.collection);
-		
-		// Get the collection name from the field object
-		const targetCollection = field.collection;
-		console.log('Target collection for interfaces:', targetCollection);
-		
+		console.log('Options function triggered for collection:', field?.collection);
+		const collection = field?.collection;
+		// Define the fields
 		const fields = [
 			{
-				field: 'collection',
+				field: 'selectedCollection',
 				name: 'Target Collection',
 				type: 'string',
 				meta: {
@@ -52,7 +47,7 @@ export default defineInterface({
 									width: 'half',
 									interface: 'system-field',
 									options: {
-										collectionName: targetCollection,
+										collectionName: collection, // Use dynamic template
 										allowPrimaryKey: false,
 										allowNone: false,
 									},
@@ -66,7 +61,7 @@ export default defineInterface({
 									width: 'half',
 									interface: 'system-display-template',
 									options: {
-										collectionName: targetCollection,
+										collectionName: collection, // Use dynamic template
 										placeholder: 'Enter static value or {{ field }}',
 										font: 'monospace',
 									},
@@ -113,10 +108,6 @@ export default defineInterface({
 				},
 			},
 		];
-
-		console.log('Field selector options:', fields[1].meta.options.fields[0].meta.options);
-		console.log('Value template options:', fields[1].meta.options.fields[1].meta.options);
-
 		return fields;
 	},
 });
