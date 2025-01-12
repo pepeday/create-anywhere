@@ -17,6 +17,9 @@ This is a custom Directus interface extension that enables users to create new i
 - **Drawer Interface**: Opens a user-friendly drawer for inputting item details.
 - **Notifications**: Success and error messages upon creation.
 
+## Bugs
+- The configuration options cannot use the selected collection for configurating dynamic default values. So dynamic default values are only possible for the current collection.
+
 ## Installation
 1. **Clone the Repository**:
    ```bash
