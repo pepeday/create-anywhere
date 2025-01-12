@@ -14,29 +14,40 @@ export async function resolveMustacheString(
     if (!matches) return template;
 
     try {
-        // Extract all fields including nested ones
+        // If we don't have an ID, just use currentValues directly
+        if (!currentValues?.id) {
+            return matches.reduce((resolved, match) => {
+                const fieldPath = match.replace(/{{\s*|\s*}}/g, '').trim();
+                const value = fieldPath.split('.').reduce((obj, key) => obj?.[key], currentValues) ?? '';
+                return resolved.replace(match, String(value));
+            }, template);
+        }
+
+        // Only fetch if we have an ID
         const fields = matches.map(match => match.replace(/{{\s*|\s*}}/g, '').trim());
         
-        // Get the current item with all needed fields
         const response = await api.get(`/items/${collection}/${currentValues.id}`, {
             params: {
-                fields: ['*', ...fields]  // Include all fields plus the specific nested ones
+                fields: ['*', ...fields]
             }
         });
 
         const itemWithRelations = response.data.data;
 
-        // Replace placeholders using the fetched data
-        const resolvedString = matches.reduce((resolved, match) => {
+        return matches.reduce((resolved, match) => {
             const fieldPath = match.replace(/{{\s*|\s*}}/g, '').trim();
             const value = fieldPath.split('.').reduce((obj, key) => obj?.[key], itemWithRelations) ?? '';
             return resolved.replace(match, String(value));
         }, template);
 
-        return resolvedString;
     } catch (error) {
-        console.error('Error resolving mustache string:', error);
-        return template;
+        // On error, try to resolve using currentValues
+        console.warn('Error fetching data, falling back to current values:', error);
+        return matches.reduce((resolved, match) => {
+            const fieldPath = match.replace(/{{\s*|\s*}}/g, '').trim();
+            const value = fieldPath.split('.').reduce((obj, key) => obj?.[key], currentValues) ?? '';
+            return resolved.replace(match, String(value));
+        }, template);
     }
 }
 
