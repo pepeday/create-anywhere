@@ -56,10 +56,7 @@ const currentItemValues = inject('values', ref<Record<string, any>>({}));
 
 // Update to use batch template resolution
 const resolveTemplateValues = async (templates: string[]) => {
-	console.log('Resolving templates:', {
-		templates,
-		currentValues: currentItemValues.value
-	});
+
 
 	const resolved = await resolveMustacheString(
 		props.collection,
@@ -68,11 +65,7 @@ const resolveTemplateValues = async (templates: string[]) => {
 		api
 	) as string[];
 
-	console.log('Templates resolution result:', {
-		templates,
-		resolved,
-		currentValues: currentItemValues.value
-	});
+
 
 	return resolved;
 };

@@ -24,17 +24,13 @@ export async function resolveMustacheString(
         });
     });
 
-    console.log('Fields to fetch:', Array.from(allMatches));
 
     try {
         let itemWithRelations = currentValues;
 
         // Only make API call if we have an ID
         if (currentValues?.id) {
-            console.log('Making API request:', {
-                url: `/items/${collection}/${currentValues.id}`,
-                fields: ['*', ...Array.from(allMatches)]
-            });
+
 
             const response = await api.get(`/items/${collection}/${currentValues.id}`, {
                 params: {
@@ -42,7 +38,6 @@ export async function resolveMustacheString(
                 }
             });
             itemWithRelations = response.data.data;
-            console.log('API response data:', itemWithRelations);
         }
 
         // Resolve all templates using the single API response
