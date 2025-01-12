@@ -1,7 +1,6 @@
 import { defineInterface } from '@directus/extensions-sdk';
 import InterfaceComponent from './create-anywhere.vue';
 
-console.log('Create Anywhere Interface loaded at:', new Date().toISOString(), Math.random());
 
 export default defineInterface({
 	id: 'create-anywhere',
@@ -15,7 +14,6 @@ export default defineInterface({
 	localTypes: ['presentation'],
 	group: 'presentation',
 	options: ({ field }) => {
-		console.log('Options function triggered for collection:', field?.collection);
 		const collection = field?.collection;
 		// Define the fields
 		const fields = [
