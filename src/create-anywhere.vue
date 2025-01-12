@@ -54,24 +54,22 @@ const showDrawer = ref(false);
 const currentItemValues = inject('values', ref<Record<string, any>>({}));
 
 
-// Update to use resolveMustacheString
-const resolveTemplateValue = async (template: string) => {
-	console.log('Resolving template:', {
-		template,
+// Update to use batch template resolution
+const resolveTemplateValues = async (templates: string[]) => {
+	console.log('Resolving templates:', {
+		templates,
 		currentValues: currentItemValues.value
 	});
 
-	if (!template.includes('{{')) return template;
-
 	const resolved = await resolveMustacheString(
-		props.collection, 
-		template, 
+		props.collection,
+		templates,
 		currentItemValues.value,
 		api
-	);
-	
-	console.log('Template resolution result:', {
-		template,
+	) as string[];
+
+	console.log('Templates resolution result:', {
+		templates,
 		resolved,
 		currentValues: currentItemValues.value
 	});
@@ -84,15 +82,19 @@ const defaultEdits = ref<Record<string, any>>({});
 
 // Watch for changes in props.defaultFields and update defaultEdits
 watch([() => props.defaultFields, currentItemValues], async () => {
-	const edits: Record<string, any> = {};
-	
-	if (props.defaultFields?.length) {
-		for (const fieldConfig of props.defaultFields) {
-			const resolvedValue = await resolveTemplateValue(fieldConfig.value);
-			edits[fieldConfig.field] = resolvedValue;
-		}
+	if (!props.defaultFields?.length) {
+		defaultEdits.value = {};
+		return;
 	}
-	
+
+	const templates = props.defaultFields.map(field => field.value);
+	const resolvedValues = await resolveTemplateValues(templates);
+
+	const edits: Record<string, any> = {};
+	props.defaultFields.forEach((fieldConfig, index) => {
+		edits[fieldConfig.field] = resolvedValues[index];
+	});
+
 	defaultEdits.value = edits;
 }, { immediate: true });
 

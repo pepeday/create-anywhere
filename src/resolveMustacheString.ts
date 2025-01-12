@@ -2,52 +2,78 @@ import type { Api } from '@directus/types';
 
 export async function resolveMustacheString(
     collection: string, 
-    template: string, 
+    templates: string | string[], 
     currentValues: Record<string, any>,
     api: Api
-): Promise<string> {
-    // If it's not a template string, return as is
-    if (!template.includes('{{')) return template;
+): Promise<string | string[]> {
+    // Handle single template case
+    const isArray = Array.isArray(templates);
+    const templateArray = isArray ? templates : [templates];
+    
+    // If no templates contain mustache syntax, return early
+    if (!templateArray.some(template => template.includes('{{'))) {
+        return isArray ? templateArray : templateArray[0];
+    }
 
-    // Find all mustache placeholders in the template
-    const matches = template.match(/{{\s*([^}]+)\s*}}/g);
-    if (!matches) return template;
+    // Collect all unique mustache fields across all templates
+    const allMatches = new Set<string>();
+    templateArray.forEach(template => {
+        const matches = template.match(/{{\s*([^}]+)\s*}}/g) || [];
+        matches.forEach(match => {
+            allMatches.add(match.replace(/{{\s*|\s*}}/g, '').trim());
+        });
+    });
+
+    console.log('Fields to fetch:', Array.from(allMatches));
 
     try {
-        // If we don't have an ID, just use currentValues directly
-        if (!currentValues?.id) {
-            return matches.reduce((resolved, match) => {
-                const fieldPath = match.replace(/{{\s*|\s*}}/g, '').trim();
-                const value = fieldPath.split('.').reduce((obj, key) => obj?.[key], currentValues) ?? '';
-                return resolved.replace(match, String(value));
-            }, template);
+        let itemWithRelations = currentValues;
+
+        // Only make API call if we have an ID
+        if (currentValues?.id) {
+            console.log('Making API request:', {
+                url: `/items/${collection}/${currentValues.id}`,
+                fields: ['*', ...Array.from(allMatches)]
+            });
+
+            const response = await api.get(`/items/${collection}/${currentValues.id}`, {
+                params: {
+                    fields: ['*', ...Array.from(allMatches)]
+                }
+            });
+            itemWithRelations = response.data.data;
+            console.log('API response data:', itemWithRelations);
         }
 
-        // Only fetch if we have an ID
-        const fields = matches.map(match => match.replace(/{{\s*|\s*}}/g, '').trim());
-        
-        const response = await api.get(`/items/${collection}/${currentValues.id}`, {
-            params: {
-                fields: ['*', ...fields]
-            }
+        // Resolve all templates using the single API response
+        const resolvedTemplates = templateArray.map(template => {
+            const matches = template.match(/{{\s*([^}]+)\s*}}/g);
+            if (!matches) return template;
+
+            return matches.reduce((resolved, match) => {
+                const fieldPath = match.replace(/{{\s*|\s*}}/g, '').trim();
+                const value = fieldPath.split('.').reduce((obj, key) => obj?.[key], itemWithRelations) ?? '';
+                
+                // Handle objects - return their ID or a meaningful string representation
+                if (typeof value === 'object' && value !== null) {
+                    return resolved.replace(match, value.id || '');
+                }
+                
+                return resolved.replace(match, String(value));
+            }, template);
         });
 
-        const itemWithRelations = response.data.data;
-
-        return matches.reduce((resolved, match) => {
-            const fieldPath = match.replace(/{{\s*|\s*}}/g, '').trim();
-            const value = fieldPath.split('.').reduce((obj, key) => obj?.[key], itemWithRelations) ?? '';
-            return resolved.replace(match, String(value));
-        }, template);
+        return isArray ? resolvedTemplates : resolvedTemplates[0];
 
     } catch (error) {
+        console.warn('Error details:', {
+            errorMessage: error.message,
+            errorResponse: error.response?.data,
+            collection,
+            currentValues
+        });
         // On error, try to resolve using currentValues
-        console.warn('Error fetching data, falling back to current values:', error);
-        return matches.reduce((resolved, match) => {
-            const fieldPath = match.replace(/{{\s*|\s*}}/g, '').trim();
-            const value = fieldPath.split('.').reduce((obj, key) => obj?.[key], currentValues) ?? '';
-            return resolved.replace(match, String(value));
-        }, template);
+        // ... rest of error handling
     }
 }
 
