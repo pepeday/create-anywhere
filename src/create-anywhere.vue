@@ -65,6 +65,10 @@ const resolveTemplateValues = async (templates: string[]) => {
 		api
 	) as string[];
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 89c5fe2b14f052aa3f3393bc74b502e05241da02
 
 	return resolved;
 };
